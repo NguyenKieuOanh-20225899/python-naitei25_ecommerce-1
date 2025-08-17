@@ -42,7 +42,7 @@ from django.views.decorators.csrf import csrf_exempt
 from paypal.standard.forms import PayPalPaymentsForm
 from django.views.decorators.http import require_POST
 from django.shortcuts import render, redirect, get_object_or_404
-
+from core.forms import *
 
 
 def index(request):
@@ -413,8 +413,7 @@ def checkout(request, oid):
           discount = subtotal * Decimal(str(coupon.discount)) / Decimal('100')
           if discount > coupon.max_discount_amount:
               discount = coupon.max_discount_amount
-          subtotal = subtotal - discount + tax + shipping
-          total = subtotal
+          total = subtotal - discount + tax + shipping
           order.amount = total
           order.save()
     host = request.get_host()
@@ -709,7 +708,7 @@ def get_rating_counts(product):
     return results
 
 def _to_decimal(v):
-    if v in (None, ""): 
+    if v in (None, ""):
         return None
     try:
         return Decimal(str(v).replace(",", "."))
