@@ -2,7 +2,7 @@
 {% load static %}
 {% load humanize %}
 {% load i18n %}
-{% block content %}    
+{% block content %}
 
 <section class="content-main">
     <div class="content-header">
@@ -63,7 +63,7 @@
                                 <td>{{ order.phone|default:"N/A" }}</td>
                                 <td>${{ order.amount|floatformat:2|intcomma }}</td>
                                 <td>
-                                    <span class="badge 
+                                    <span class="badge
                                         {% if order.order_status == 'processing' %}alert-warning
                                         {% elif order.order_status == 'shipped' %}alert-info
                                         {% elif order.order_status == 'delivered' %}alert-success
