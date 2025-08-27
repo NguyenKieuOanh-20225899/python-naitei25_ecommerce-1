@@ -148,6 +148,9 @@
                                                                     <a href="{% url 'core:order-detail' o.id %}" class="btn-small d-block">
                                                                         {% trans "View" %}
                                                                     </a>
+                                                                    <a href="{% url 'core:order-return' o.id %}" class="btn-small d-block ">
+                                                                      {% trans "Return" %}
+                                                                    </a>
                                                                 </td>
                                                             </tr>
                                                             {% empty %}
@@ -282,7 +285,7 @@
                                                             <label>{% trans "Confirm Password" %} <span class="required">*</span></label>
                                                             <input required="" class="form-control" name="cpassword" type="password" />
                                                         </div>
-                                                        <div class="col-md-12"> 
+                                                        <div class="col-md-12">
                                                             <button type="submit" class="btn btn-fill-out submit font-weight-bold" name="submit" value="Submit">{% trans "Save Change" %}</button>
                                                         </div>
                                                     </div>

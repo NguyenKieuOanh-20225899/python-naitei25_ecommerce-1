@@ -1,10 +1,10 @@
 from django.shortcuts import redirect, render
-from userauths.forms import UserRegisterForm, ProfileForm
+from userauths.forms import UserRegisterForm, ProfileForm, ForgotPasswordForm
 from django.contrib.auth import login, authenticate, logout
 from django.contrib import messages
 from django.utils.translation import gettext as _
 from userauths.models import User
-from utils.email_service import send_activation_email, is_valid_email
+from utils.email_service import send_activation_email, is_valid_email, send_password_reset_email
 from django.utils.http import urlsafe_base64_encode
 from django.utils.encoding import force_bytes
 from django.contrib.auth.tokens import default_token_generator
@@ -16,7 +16,9 @@ from django.contrib.auth.decorators import login_required
 
 from core.forms import *
 import shortuuid
-from core.models import Image 
+from core.models import Image
+from django.contrib.auth.forms import SetPasswordForm
+
 
 logger = logging.getLogger(__name__)
 
@@ -32,18 +34,16 @@ def register_view(request):
             email = form.cleaned_data.get("email")
             role = form.cleaned_data.get("role")
 
-            if not is_valid_email(email):
-                messages.error(request, _("Email không hợp lệ hoặc không tồn tại."))
-                return redirect('userauths:sign-up')
+
             new_user = form.save(commit=False)
             new_user.is_active = False
             new_user.save()
-            
+
             # Nếu là vendor thì chuyển sang trang nhập vendor info
             if role == "vendor":
                 request.session["pending_vendor_user_id"] = new_user.id
                 return redirect("userauths:vendor-register")
-            
+
             # Nếu là customer thì gửi mail luôn
             username = form.cleaned_data.get("username")
             #Tao token va uidb64
@@ -95,7 +95,7 @@ def login_view(request):
                     except Vendor.DoesNotExist:
                         messages.warning(request, _("Bạn chưa đăng ký thông tin cửa hàng."))
                         return redirect("userauths:sign-in")
-                
+
                 login(request, user)
                 messages.success(request, _("Login successfully!"))
                 if user.role == "vendor":
@@ -155,8 +155,8 @@ def profile_update(request):
 
     return render(request, "userauths/profile-edit.html", context)
 
-        
-        
+
+
 def vendor_register_view(request):
     user_id = request.session.get("pending_vendor_user_id")
     if not user_id:
@@ -202,3 +202,51 @@ def vendor_register_view(request):
 
     return render(request, "userauths/vendor-register.html", {"form": form})
 
+def forgot_password_view(request):
+    if request.method == "POST":
+        form = ForgotPasswordForm(request.POST)
+        if form.is_valid():
+            email = form.cleaned_data.get("email")
+            
+            try:
+                user = User.objects.get(email=email)
+                uidb64 = urlsafe_base64_encode(force_bytes(user.pk))
+                token = default_token_generator.make_token(user)
+
+                # build reset link
+                reset_link = request.build_absolute_uri(
+                    f"/user/reset-password/{uidb64}/{token}/"
+                )
+
+                # gọi hàm gửi mail riêng
+                send_password_reset_email(user, reset_link)
+
+                messages.success(request, _("Please check your email to reset your password."))
+                return redirect("userauths:sign-in")
+            except User.DoesNotExist:
+                messages.error(request, _("This email is not registered."))
+    else:
+        form = ForgotPasswordForm()
+    return render(request, "userauths/forgot_password.html", {"form": form})
+
+def reset_password_view(request, uidb64, token):
+    try:
+        uid = urlsafe_base64_decode(uidb64).decode()
+        user = User.objects.get(pk=uid)
+    except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+        user = None
+
+    if user is not None and default_token_generator.check_token(user, token):
+        if request.method == "POST":
+            form = SetPasswordForm(user, request.POST)
+            if form.is_valid():
+                form.save()
+                messages.success(request, _("Password reset successfully. You can login now."))
+                logout(request)
+                return redirect("userauths:sign-in")
+        else:
+            form = SetPasswordForm(user)
+        return render(request, "userauths/reset_password.html", {"form": form})
+    else:
+        messages.error(request, _("Reset password link is invalid or expired."))
+        return redirect("userauths:forgot-password")

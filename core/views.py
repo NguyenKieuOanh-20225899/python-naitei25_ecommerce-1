@@ -51,6 +51,7 @@ from typing import Optional, Tuple
 from django.http import HttpRequest
 from dataclasses import dataclass
 from core.forms import *
+from utils.email_service import *
 
 def index(request):
     # Base query: các sản phẩm đã publish
@@ -770,6 +771,9 @@ def cod_checkout(request):
     order.order_status = 'shipped'   # <-- theo yêu cầu
     order.save(update_fields=["amount", "paid_status", "order_status"])
 
+    #Gửi email thông báo đặt hàng thành công
+    send_order_email(request.user, order)
+
     # Xoá giỏ + dấu băng nếu có
     request.session['cart_data_obj'] = {}
     request.session.pop('frozen_order_id', None)
@@ -824,7 +828,7 @@ def order_list(request):
 def build_products_qs(request):
     """Trả về queryset đã áp dụng các filter từ URL."""
     categories = getlist(request.GET, "category")  # ✅
-    vendors    = getlist(request.GET, "vendor")   
+    vendors    = getlist(request.GET, "vendor")
     min_price  = to_decimal(request.GET.get("min_price"))
     max_price  = to_decimal(request.GET.get("max_price"))
 
@@ -926,20 +930,20 @@ def filter_product(request):
         "has_next": page_obj.has_next(),
         "next_page": page_obj.next_page_number() if page_obj.has_next() else None,
     })
-    
+
 def tag_list(request, tag_slug=None):
     products = Product.objects.filter(product_status=PRODUCT_STATUS_PUBLISHED).order_by("-pid")
-    
+
     tag = None
     if tag_slug:
         tag = get_object_or_404(Tag, slug=tag_slug)
         products = products.filter(tags__in=[tag])
-    
+
     context = {
         "products": products,
         "tag": tag,
     }
-    
+
     return render(request, "core/tag.html", context)
 @login_required
 def wishlist_view(request):
@@ -989,7 +993,7 @@ def remove_wishlist(request):
     wishlist = wishlist_model.objects.filter(user=request.user)
     wishlist_d = wishlist_model.objects.get(id=pid)
     delete_product = wishlist_d.delete()
-    
+
     context = {
         "bool":True,
         "w":wishlist
@@ -997,5 +1001,18 @@ def remove_wishlist(request):
     wishlist_json = serializers.serialize('json', wishlist)
     t = render_to_string('core/async/wishlist-list.html', context)
     return JsonResponse({'data':t,'w':wishlist_json})
+
+def order_return(request, pk):
+    order = get_object_or_404(CartOrder, id=pk, user=request.user)
+    allowed_statuses = ['processing', 'pending', 'delivered']
+
+    if order.order_status in allowed_statuses:
+        order.order_status = 'return_requested'
+        order.save()
+        messages.success(request, "Your return request has been submitted.")
+    else:
+        messages.error(request, f"Orders with status '{order.order_status}' cannot be returned.")
+
+    return redirect(request.META.get('HTTP_REFERER', 'core:dashboard'))
 
 

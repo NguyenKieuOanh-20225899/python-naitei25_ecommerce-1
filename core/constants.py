@@ -67,6 +67,11 @@ ORDER_STATUS_CHOICES = (
     ('delivered', 'Delivered'),
     ('cancelled', 'Cancelled'),
     ('refunded', 'Refunded'),
+    ('return_requested', 'Return Requested'),   # Khách yêu cầu trả hàng
+    ('return_approved', 'Return Approved'),     # Admin/shop chấp nhận yêu cầu
+    ('return_rejected', 'Return Rejected'),     # Admin/shop từ chối yêu cầu
+    ('returned', 'Returned'),                   # Hàng đã được gửi trả về
+    ('return_completed', 'Return Completed'),   # Quá trình hoàn hàng kết thúc (hoàn tiền/đổi hàng xong)
 )
 # constants.py
 MAX_LENGTH_MOBILE = 15

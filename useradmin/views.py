@@ -17,7 +17,7 @@ from .decorators import vendor_required, vendor_profile_required, vendor_auth_re
 from django.utils import timezone
 from core.constants import (
     PRODUCT_STATUS_DELETED,
-    PRODUCT_STATUS_DRAFT, 
+    PRODUCT_STATUS_DRAFT,
     PRODUCT_STATUS_PUBLISHED,
     PRODUCT_STATUS_DISABLED,
     PRODUCT_STATUS_REJECTED,
@@ -145,15 +145,15 @@ def products(request, vendor):
 def add_product(request, vendor):
     if request.method == "POST":
         form = AddProductForm(request.POST, request.FILES)
-        
+
         # Kiểm tra xem có nhấn nút Publish không
         is_publish = 'publish' in request.POST
-        
+
         if form.is_valid():
             with transaction.atomic():
                 product = form.save(commit=False)
                 product.vendor = vendor
-                
+
                 # Xử lý publish logic
                 if is_publish:
                     # Kiểm tra điều kiện publish
@@ -171,18 +171,18 @@ def add_product(request, vendor):
                 else:
                     # Lưu thành draft
                     product.status = False
-                    product.in_stock = False  
+                    product.in_stock = False
                     product.product_status = PRODUCT_STATUS_DRAFT
                     success_message = f"Product '{product.title}' saved as draft"
-                
+
                 product.save()
-                
+
                 # --- xử lý tags ---
                 tags_str = form.cleaned_data.get("tags", "")
                 if tags_str:
                     tags_list = [t.strip() for t in tags_str.split(",") if t.strip()]
                     product.tags.set(tags_list)
-                    
+
                 # Xử lý upload ảnh
                 if 'image' in request.FILES:
                     Image.objects.create(
@@ -232,15 +232,15 @@ def edit_product(request, pid, vendor):
 
     if request.method == "POST":
         form = AddProductForm(request.POST, request.FILES, instance=product)
-        
+
         # Kiểm tra xem có nhấn nút Publish không
         is_publish = 'publish' in request.POST
-        
+
         if form.is_valid():
             with transaction.atomic():
                 new_form = form.save(commit=False)
                 new_form.vendor = vendor
-                
+
                 # Xử lý publish logic
                 if is_publish:
                     if new_form.amount > 0 and new_form.stock_count > 0:
@@ -266,7 +266,7 @@ def edit_product(request, pid, vendor):
                         new_form.in_stock = False
                         new_form.product_status = PRODUCT_STATUS_DRAFT
                         success_message = f"Product '{new_form.title}' saved as draft"
-                
+
                 new_form.save()
 
                 if 'image' in request.FILES:
@@ -404,12 +404,12 @@ def change_order_status(request, oid, vendor):
 
             if current_status == 'delivered' and new_status != 'delivered':
                 messages.error(
-                    request, 
+                    request,
                     _("Cannot change status of delivered order. Please create a return/exchange request.")
                 )
             elif status_order.get(current_status, 0) > status_order.get(new_status, 0):
                 messages.error(
-                    request, 
+                    request,
                     _("Cannot change order status from '{}' to '{}'. Only forward progression is allowed.").format(
                         current_status, new_status
                     )
@@ -540,7 +540,7 @@ def create_vendor(request):
                     object_id=vid,
                     is_primary=True
                 )
-        
+
         messages.success(request, _("Your vendor account has been created successfully"))
         return redirect('useradmin:dashboard')
 
@@ -552,7 +552,7 @@ def coupons(request, vendor):
     search_query = request.GET.get('search', '').strip()
     status_filter = request.GET.get('status', '')
     show_deleted = request.GET.get('show_deleted', 'false') == 'true'
-    
+
     if show_deleted:
         coupons_list = Coupon.objects.filter(vendor=vendor)
     else:
@@ -562,7 +562,7 @@ def coupons(request, vendor):
         ).exclude(
             Q(active=False) & Q(orders_count__gt=0)
         )
-    
+
     if not show_deleted:
         pass
     else:
@@ -570,13 +570,13 @@ def coupons(request, vendor):
             usage_count=Count('couponuser'),
             orders_count=Count('cart_orders')
         )
-    
+
     if search_query:
         coupons_list = coupons_list.filter(
             Q(code__icontains=search_query) |
             Q(min_order_amount__icontains=search_query)
         )
-    
+
     current_time = timezone.now()
     if status_filter == 'active':
         coupons_list = coupons_list.filter(active=True, expiry_date__gt=current_time)
@@ -586,13 +586,13 @@ def coupons(request, vendor):
         coupons_list = coupons_list.filter(expiry_date__lte=current_time)
     elif status_filter == 'deleted' and show_deleted:
         coupons_list = coupons_list.filter(active=False, orders_count__gt=0)
-    
+
     coupons_list = coupons_list.order_by('-id')
-    
+
     paginator = Paginator(coupons_list, 15)
     page = request.GET.get('page')
     coupons = paginator.get_page(page)
-    
+
     context = {
         'coupons': coupons,
         'vendor': vendor,
@@ -613,12 +613,12 @@ def add_coupon(request, vendor):
             coupon.vendor = vendor
             coupon.code = coupon.code.upper().strip()
             coupon.save()
-            
+
             messages.success(request, _("Coupon '{}' has been created successfully!").format(coupon.code))
             return redirect('useradmin:coupons')
     else:
         form = CouponForm()
-    
+
     context = {
         'form': form,
         'vendor': vendor,
@@ -631,19 +631,19 @@ def add_coupon(request, vendor):
 @vendor_auth_required()
 def edit_coupon(request, vendor, coupon_id):
     coupon = get_object_or_404(Coupon, id=coupon_id, vendor=vendor)
-    
+
     if request.method == 'POST':
         form = CouponForm(request.POST, instance=coupon)
         if form.is_valid():
             coupon = form.save(commit=False)
             coupon.code = coupon.code.upper().strip()
             coupon.save()
-            
+
             messages.success(request, _("Coupon '{}' has been updated!").format(coupon.code))
             return redirect('useradmin:coupons')
     else:
         form = CouponForm(instance=coupon)
-    
+
     context = {
         'form': form,
         'coupon': coupon,
@@ -658,19 +658,19 @@ def edit_coupon(request, vendor, coupon_id):
 def delete_coupon(request, vendor, coupon_id):
     if not request.headers.get('x-requested-with') == 'XMLHttpRequest':
         return JsonResponse({'success': False, 'error': 'AJAX request required'}, status=400)
-    
+
     coupon = get_object_or_404(Coupon, id=coupon_id, vendor=vendor)
-    
+
     orders_with_coupon = CartOrder.objects.filter(coupon=coupon).exists()
-    
+
     if request.method == 'POST':
         try:
             coupon_code = coupon.code
-            
+
             if orders_with_coupon:
                 error_message = _("Cannot delete coupon '{}' because it has been used in orders. Please deactivate it instead.").format(coupon_code)
                 return JsonResponse({
-                    'success': False, 
+                    'success': False,
                     'error': error_message,
                     'used_in_orders': True
                 }, status=400)
@@ -678,19 +678,19 @@ def delete_coupon(request, vendor, coupon_id):
                 coupon.delete()
                 message = _("Coupon '{}' has been deleted successfully!").format(coupon_code)
                 return JsonResponse({
-                    'success': True, 
+                    'success': True,
                     'message': message,
                     'coupon_id': coupon_id,
                     'deleted': True
                 })
-            
+
         except Exception as e:
             error_message = _("An error occurred while deleting the coupon: {}").format(str(e))
             return JsonResponse({
-                'success': False, 
+                'success': False,
                 'error': error_message
             }, status=500)
-    
+
     return JsonResponse({
         'coupon': {
             'id': coupon.id,
@@ -706,12 +706,12 @@ def delete_coupon(request, vendor, coupon_id):
 @vendor_auth_required()
 def coupon_detail(request, vendor, coupon_id):
     coupon = get_object_or_404(Coupon, id=coupon_id, vendor=vendor)
-    
+
     coupon_users = CouponUser.objects.filter(coupon=coupon).select_related('user')
-    
+
     total_usage = coupon_users.count()
     is_expired = coupon.expiry_date <= timezone.now()
-    
+
     context = {
         'coupon': coupon,
         'coupon_users': coupon_users,
@@ -725,13 +725,13 @@ def coupon_detail(request, vendor, coupon_id):
 @vendor_auth_required()
 def toggle_coupon_status(request, vendor, coupon_id):
     coupon = get_object_or_404(Coupon, id=coupon_id, vendor=vendor)
-    
+
     coupon.active = not coupon.active
     coupon.save()
-    
+
     status = _("activated") if coupon.active else _("deactivated")
     messages.success(request, _("Coupon '{}' has been {}!").format(coupon.code, status))
-    
+
     return redirect('useradmin:coupons')
 
 @login_required
@@ -757,3 +757,42 @@ def restore_product(request, pid, vendor):
     except Product.DoesNotExist:
         messages.error(request, "Product not found.")
         return redirect("useradmin:dashboard-products")
+# useradmin/views.py
+from django.contrib.auth.decorators import login_required, user_passes_test
+from django.shortcuts import render, get_object_or_404, redirect
+from django.views.decorators.http import require_POST
+from django.contrib import messages
+from core.models import CartOrder
+
+
+@login_required
+def return_requests(request):
+    qs = CartOrder.objects.filter(
+        order_status="return_requested",
+        vendor__user=request.user,      # <<< dùng quan hệ
+    ).order_by('-order_date')
+    return render(request, "useradmin/return_requests.html", {"orders": qs})
+
+@login_required
+@require_POST
+def return_approve(request, pk):
+    order = get_object_or_404(CartOrder, pk=pk)
+    if order.order_status != "return_requested":
+        messages.error(request, "Trạng thái hiện tại không cho phép duyệt.")
+    else:
+        order.order_status = "return_approved"
+        order.save(update_fields=["order_status"])
+        messages.success(request, f"Đã chấp nhận yêu cầu hoàn cho đơn #{order.pk}.")
+    return redirect("useradmin:return_requests")
+
+@login_required
+@require_POST
+def return_reject(request, pk):
+    order = get_object_or_404(CartOrder, pk=pk)
+    if order.order_status != "return_requested":
+        messages.error(request, "Trạng thái hiện tại không cho phép từ chối.")
+    else:
+        order.order_status = "return_rejected"
+        order.save(update_fields=["order_status"])
+        messages.success(request, f"Đã từ chối yêu cầu hoàn cho đơn #{order.pk}.")
+    return redirect("useradmin:return_requests")
